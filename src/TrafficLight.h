@@ -44,7 +44,7 @@ public:
 
     // getters / setters
     TrafficLightPhase getCurrentPhase();
-
+    
     // typical behaviour methods
     void waitForGreen();
     void simulate() override;

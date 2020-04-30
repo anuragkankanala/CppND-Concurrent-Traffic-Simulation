@@ -39,6 +39,8 @@ void TrafficLight::waitForGreen()
 
 TrafficLightPhase TrafficLight::getCurrentPhase()
 {
+    std::unique_lock<std::mutex> current_phase_lock(_mutex);
+    _condition.wait(current_phase_lock);
     return _currentPhase;
 }
 
@@ -54,4 +56,36 @@ void TrafficLight::cycleThroughPhases()
     // and toggles the current phase of the traffic light between red and green and sends an update method 
     // to the message queue using move semantics. The cycle duration should be a random value between 4 and 6 seconds. 
     // Also, the while-loop should use std::this_thread::sleep_for to wait 1ms between two cycles. 
+
+    //Generate a random number between 4000 and 6000 milliseconds for cycle update.
+    std::random_device rd;
+    std::mt19937 eng(rd());
+    std::uniform_int_distribution<> distr(4000, 6000);
+
+    int cycle_duration_ms = distr(eng);
+    auto lastUpdate = std::chrono::system_clock::now();
+    
+    while(true)
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+        long timeSinceLastUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - lastUpdate).count();
+        if(timeSinceLastUpdate > cycle_duration_ms)
+        {
+            std::unique_lock<std::mutex> current_phase_lock(_mutex);
+            if(_currentPhase == TrafficLightPhase::red)
+            {
+                _currentPhase = TrafficLightPhase::green;
+            }
+            else
+            {
+                _currentPhase = TrafficLightPhase::red;
+            }
+            
+            lastUpdate = std::chrono::system_clock::now();
+            cycle_duration_ms = distr(eng);
+            _condition.notify_all();
+        }
+
+    }
 }
