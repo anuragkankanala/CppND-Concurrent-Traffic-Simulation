@@ -40,7 +40,7 @@ private:
 
 
 
-class TrafficLight : public TrafficObject, public std::enable_shared_from_this<TrafficLight>
+class TrafficLight : public TrafficObject
 {
 public:
     // constructor / desctructor
@@ -56,7 +56,6 @@ public:
 
 private:
     // typical behaviour methods
-    std::shared_ptr<TrafficLight> get_shared_this() { return shared_from_this(); }
     void cycleThroughPhases();
     TrafficLightPhase _currentPhase;
     // FP.4b : create a private member of type MessageQueue for messages of type TrafficLightPhase 

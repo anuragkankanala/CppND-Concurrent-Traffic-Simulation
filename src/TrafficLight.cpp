@@ -12,9 +12,11 @@ T MessageQueue<T>::receive()
     // The received object should then be returned by the receive function. 
     
     std::unique_lock<std::mutex> lock(_mutex);
-    _condtion.wait(lock, !_queue.empty());
+    _condtion.wait(lock, [this](){return !_queue.empty();});
 
-    return std::move(_queue.pop_front())
+    auto to_return = std::move(_queue.front());
+    _queue.clear();
+    return to_return;
 }
 
 template <typename T>
@@ -23,8 +25,8 @@ void MessageQueue<T>::send(T &&msg)
     // FP.4a : The method send should use the mechanisms std::lock_guard<std::mutex> 
     // as well as _condition.notify_one() to add a new message to the queue and afterwards send a notification.
     std::lock_guard<std::mutex> lock(_mutex);
-    _queue.emplace_back(msg);
-    _condtion.notify_one;
+    _queue.emplace_back(std::move(msg));
+    _condtion.notify_one();
 }
 
 /* Implementation of class "TrafficLight" */
@@ -42,27 +44,23 @@ void TrafficLight::waitForGreen()
     // runs and repeatedly calls the receive function on the message queue. 
     // Once it receives TrafficLightPhase::green, the method returns.
 
-    while(true)
+    while(traffic_light_queue.receive() != TrafficLightPhase::green)
     {
-        //std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        if(traffic_light_queue.receive() == TrafficLightPhase::green)
-        {
-            return;
-        }
+        // waiting for green!!!
     }
+
+    return;
 }
 
 TrafficLightPhase TrafficLight::getCurrentPhase()
 {
-    std::unique_lock<std::mutex> current_phase_lock(_mutex);
-    _condition.wait(current_phase_lock);
     return _currentPhase;
 }
 
 void TrafficLight::simulate()
 {
     // FP.2b : Finally, the private method „cycleThroughPhases“ should be started in a thread when the public method „simulate“ is called. To do this, use the thread queue in the base class. 
-    threads.emplace_back(std::thread(&TrafficLight::cycleThroughPhases, get_shared_this()));
+    threads.emplace_back(std::thread(&TrafficLight::cycleThroughPhases, this));
 }
 
 // virtual function which is executed in a thread
@@ -88,7 +86,6 @@ void TrafficLight::cycleThroughPhases()
         long timeSinceLastUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - lastUpdate).count();
         if(timeSinceLastUpdate > cycle_duration_ms)
         {
-            std::unique_lock<std::mutex> current_phase_lock(_mutex);
             if(_currentPhase == TrafficLightPhase::red)
             {
                 _currentPhase = TrafficLightPhase::green;
@@ -99,11 +96,8 @@ void TrafficLight::cycleThroughPhases()
                 _currentPhase = TrafficLightPhase::red;
                 traffic_light_queue.send(std::move(TrafficLightPhase::red));
             }
-            
             lastUpdate = std::chrono::system_clock::now();
             cycle_duration_ms = distr(eng);
-            _condition.notify_all();
-        }
-
+        }        
     }
 }
